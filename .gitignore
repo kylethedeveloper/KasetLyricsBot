@@ -1,0 +1,5 @@
+exportapi.sh
+*.session
+*.log
+*journal
+__pycache__

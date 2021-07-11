@@ -1,0 +1,11 @@
+pyaes
+rsa
+pysocks
+python-socks[asyncio]
+hachoir
+cryptg
+Pillow
+Telethon
+beautifulsoup4
+requests
+urllib3
