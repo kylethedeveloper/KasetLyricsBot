@@ -5,6 +5,7 @@ from telethon import TelegramClient, events, utils, Button
 from enum import Enum, auto
 
 def get_env(name, message, cast=str):
+    logger = logging.getLogger('system.getenv')
     if name in os.environ:
         return os.environ[name]
     while True:
@@ -12,7 +13,7 @@ def get_env(name, message, cast=str):
         try:
             return cast(value)
         except ValueError as e:
-            print(e, file=sys.stderr)
+            logger.exception(e)
             time.sleep(1)
 
 session = get_env('TG_SESSION_NAME', 'Enter a session name:')
@@ -55,8 +56,10 @@ conversation_state = {}
 @bot.on(events.NewMessage(pattern='/help'))
 async def help(event):
     who = event.sender_id
+    logger = logging.getLogger('events.help')
+    logger.debug(str(who) + " asked for help, state is " + str(conversation_state.get(who)))
     if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
-        await event.respond("Please type /start or click the button to start using the bot.")
+        await bot.send_message(event.chat_id, 'Please type /start or click the button to start using the bot.', buttons=Button.text("Start", resize=True, single_use=True))
         raise events.StopPropagation
     elif conversation_state[who] == State.START_BOT:
         await event.respond(helpText)
@@ -66,10 +69,11 @@ async def help(event):
 @bot.on(events.NewMessage(pattern='/start|[sS]tart'))
 async def start(event):
     who = event.sender_id
+    logger = logging.getLogger('events.start')
     if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
-        print("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.START_BOT
-        print("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         menu = [
             [
                 Button.text("Lyrics of a song", resize=True),
@@ -87,10 +91,11 @@ async def start(event):
 @bot.on(events.NewMessage(pattern='/stop'))
 async def stop(event):
     who = event.sender_id
+    logger = logging.getLogger('events.stop')
     if conversation_state.get(who) != State.STOP_BOT:
-        print("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.STOP_BOT
-        print("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         await bot.send_message(event.chat_id, '🛑 Bot Stopped 🛑', buttons=Button.text("Start", resize=True, single_use=True))
         raise events.StopPropagation
     raise events.StopPropagation
@@ -98,13 +103,14 @@ async def stop(event):
 @bot.on(events.NewMessage(pattern='Lyrics of a song'))
 async def lyricsof(event):
     who = event.sender_id
+    logger = logging.getLogger('events.lyricsofasong')
     if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
         await event.respond("Please type /start or click the button to start using the bot.")
         raise events.StopPropagation
     elif conversation_state[who] == State.START_BOT:
-        print("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.LYRICS_OF
-        print("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         async with bot.conversation(event.sender_id) as conv:
             await conv.send_message("Enter both artist and song name spelled correctly. \nThey should be separated with an hyphen (-)")
             try:
@@ -119,9 +125,9 @@ async def lyricsof(event):
                         artistName, songName = lyricsof.split("-")
                     except ValueError: # Check if more than one hyphen (-) is entered
                         await conv.send_message('You did not sent a valid message.\nPlease split the artist name and song name with only one hyphen.\nExample: **Elton John - Please**')
-                        print("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                         conversation_state[who] = State.START_BOT
-                        print("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                         raise events.StopPropagation
                     l = azlyrics.lyrics(artistName, songName) # Get the lyrics OR sorry message
                     if "/searchbylyrics" in l: # Check if response is sorry message
@@ -133,15 +139,15 @@ async def lyricsof(event):
                                 await event.respond("Lyrics is more than 4096 chars, can not be sent.\nThis issue will be fixed soon.")
                             else:
                                 await event.respond("```" + resp + "```")
-                print("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                print("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
             except asyncio.TimeoutError: # Catch the timeout
                 await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
-                print("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                print("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
     raise events.StopPropagation
 
@@ -153,13 +159,14 @@ async def lyricsof(event):
 @bot.on(events.NewMessage(incoming=True))
 async def allother(event):
     who = event.sender_id
-    if conversation_state.get(who) is None:
-        print("None condition. State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger = logging.getLogger('events.allother')
+    if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.STOP_BOT
-        print("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
-        await bot.send_message(event.chat_id, 'Bot server restarted.\n🛑 Bot Stopped 🛑', buttons=Button.text("Start", resize=True, single_use=True))
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        await bot.send_message(event.chat_id, 'Please type /start or click the button to start using the bot.', buttons=Button.text("Start", resize=True, single_use=True))
         raise events.StopPropagation
-    print("I am at the very beginning. State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger.debug("I am at the very beginning. State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
     if conversation_state[who] == State.START_BOT:
         await event.respond("Type /help to get help.")
         raise events.StopPropagation

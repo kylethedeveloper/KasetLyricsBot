@@ -22,6 +22,7 @@ My own version is [KasetLyricsBot](https://t.me/KasetLyricsBot), free for all.
 - [ ] `Songs of artist`
 - [ ] `Albums of artist`
 - [ ] Fix [MessageTooLongError](https://tl.telethon.dev/methods/messages/send_message.html) where messages longer than 4096 characters can not be sent.
+- [x] Better logging mechanism.
 - [ ] Print the Spotify link of the song after the request.
 - [ ] Find by Spotify link: User pastes the link and lyrics are displayed.
 - [ ] `Delete Me` option, where the user can delete his/her `sender_id` from `conversation_state` array.
@@ -54,3 +55,7 @@ start - Start the bot
 stop - Stop the bot
 ```
 
+### Run
+```
+python3 kasetlyricsbot.py
+```
