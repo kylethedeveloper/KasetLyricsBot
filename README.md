@@ -12,7 +12,7 @@ My own version is [KasetLyricsBot](https://t.me/KasetLyricsBot), free for all.
 4. `Lyrics of a song` - After this option, user must enter both artist and song spelled correctly to get the lyrics of it directly. Name of the artist and song should be separated with an hyphen (-).<br> *Example input:* **Oasis - Don't Look Back in Anger**
 5. `Search by lyrics` - After this option, user must enter the lyrics that he/she remembers partially. If only one result with these lyrics found, then it will be printed out. If multiple results are found, first five result will be printed out and user will choose the correct one if it is listed. If it is not listed, user may proceed with the next five results and so on.
 6. `Songs of artist` - After this option, user must enter the name of the artist to retrieve all songs of belonging to it. Only songs that have lyrics on the database will be shown. User will be able to choose the song with its number. If song list is too long, it will be paginated.
-7. `Albums of artist` - After this option, user must enter the name of the artist to retrieve the album names that have songs with lyrics in them. *(Not so useful)*
+7. `Albums of artist` - After this option, user must enter the name of the artist to retrieve the album names that have songs with lyrics in them.
 
 ## TODO
 
@@ -20,7 +20,7 @@ My own version is [KasetLyricsBot](https://t.me/KasetLyricsBot), free for all.
 - [x] `Lyrics of a song`
 - [ ] `Search by lyrics`
 - [ ] `Songs of artist`
-- [ ] `Albums of artist`
+- [x] `Albums of artist`
 - [ ] Fix [MessageTooLongError](https://tl.telethon.dev/methods/messages/send_message.html) where messages longer than 4096 characters can not be sent.
 - [x] Better logging mechanism.
 - [ ] Print the Spotify link of the song after the request.

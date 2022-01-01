@@ -34,11 +34,7 @@ helpText = "This bot is aimed to find lyrics to a song and print it out for you.
             "6. `Songs of artist` - After this command, user must enter the name of the artist to retrieve all songs of belonging to it. " \
             "Only songs that have lyrics will be shown. User will be able to choose the song with its number. If song list is too long, it will be paginated.\n" \
             "7. `Albums of artist` - After this command, user must enter the name of the artist to retrieve the album names " \
-            "that have songs with lyrics in them. *(Not so useful)*"
-
-helpLyricsOf = "`/lyricsof` - After this command, user must enter both artist and song spelled correctly to get the lyrics of it directly. " \
-                "Name of the artist and song should be separated with an hyphen (-). \n__Example input:__ **/lyricsof Oasis - Don't Look Back in Anger**"
-
+            "that have songs with lyrics in them."
 
 class State(Enum):
     LYRICS_OF = auto()
@@ -103,8 +99,8 @@ async def stop(event):
 @bot.on(events.NewMessage(pattern='Lyrics of a song'))
 async def lyricsof(event):
     who = event.sender_id
-    logger = logging.getLogger('events.lyricsofasong')
-    if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
+    logger = logging.getLogger('events.lyricsofasong') # Set the logger
+    if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT: # Check if state is START_BOT
         await event.respond("Please type /start or click the button to start using the bot.")
         raise events.StopPropagation
     elif conversation_state[who] == State.START_BOT:
@@ -130,15 +126,15 @@ async def lyricsof(event):
                         logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                         raise events.StopPropagation
                     l = azlyrics.lyrics(artistName, songName) # Get the lyrics OR sorry message
-                    if "/searchbylyrics" in l: # Check if response is sorry message
+                    if "Search by lyrics" in l: # Check if response is sorry message
                         await event.respond(l)
                     else:
-                        for resp in l: # Stringfy the lyrics which is a type of list
-                            if len(resp) >= 4096: # Check if total number of chars is greater than 4096
+                        for lyrics in l: # Stringfy the lyrics which is a type of list
+                            if len(lyrics) >= 4096: # Check if total number of chars is greater than 4096
                                 # https://tl.telethon.dev/methods/messages/send_message.html <-->  MessageTooLongError
-                                await event.respond("Lyrics is more than 4096 chars, can not be sent.\nThis issue will be fixed soon.")
+                                await event.respond("Lyrics are more than 4096 chars, can not be sent.\nThis issue will be fixed soon.")
                             else:
-                                await event.respond("```" + resp + "```")
+                                await event.respond("```" + lyrics + "```")
                 logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
                 logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
@@ -151,10 +147,42 @@ async def lyricsof(event):
                 raise events.StopPropagation
     raise events.StopPropagation
 
-# @bot.on(events.NewMessage(pattern='Albums of artist'))
-# async def albumsof(event):
-#     await event.respond()
-#
+@bot.on(events.NewMessage(pattern='Albums of artist'))
+async def albumsof(event):
+    who = event.sender_id
+    logger = logging.getLogger('events.albumsofartist') # Set the logger
+    if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT: # Check if state is START_BOT
+        await event.respond("Please type /start or click the button to start using the bot.")
+        raise events.StopPropagation
+    elif conversation_state[who] == State.START_BOT:
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        conversation_state[who] = State.ALBUMS_OF
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        async with bot.conversation(event.sender_id) as conv:
+            await conv.send_message("Enter the artist name.")
+            try:
+                response = await conv.get_response(timeout=90)
+                albumsof = response.text
+                if albumsof == "/stop": # Immediately stop the bot when user types the command
+                    raise events.StopPropagation
+                else:
+                    a = azlyrics.albums(albumsof)
+                    if "Sorry, I couldn't find any albums for" in a: # Check if response is sorry message
+                        await event.respond(a)
+                    else:
+                        albums = '\n'.join(a) # Concatenate the albums which is a type of list
+                        await event.respond(albums)
+                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                conversation_state[who] = State.START_BOT
+                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                raise events.StopPropagation
+            except asyncio.TimeoutError: # Catch the timeout
+                await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
+                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                conversation_state[who] = State.START_BOT
+                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                raise events.StopPropagation
+    raise events.StopPropagation
 
 @bot.on(events.NewMessage(incoming=True))
 async def allother(event):
@@ -172,18 +200,8 @@ async def allother(event):
         raise events.StopPropagation
 
 def main():
-    # artistSong = input("Artist - Song: ")
-    # if not '-' in artistSong:
-    #     print('Please split the artist name and song name with an hyphen (-).\nExample: Elton John - Please')
-    # else:
-    #     artistName, songName = artistSong.split("-")
-    #     # artistName = input("Artist name: ")
-    #     # songName = input("Song name: ")
-    #     # print(azlyrics.songs(artistName))
-    #     print(azlyrics.lyrics(artistName, songName))
-
     logging.basicConfig(format='[%(asctime)s](%(levelname)s) %(name)s: %(message)s',
-                        filename='kasetlyrics.log', level=logging.INFO)
+                        filename='kasetlyrics.log', level=logging.DEBUG)
     bot.run_until_disconnected()
 
 if __name__ == '__main__':

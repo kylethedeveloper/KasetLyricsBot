@@ -71,35 +71,33 @@ def lyrics(artist, song):
     s = song.lower().replace(" ", "")
     s = re.sub(r'[^A-Za-z0-9]', '', s)
     url = base + "lyrics/" + a + "/" + s + ".html"
-
     req = requests.get(url, headers=headers)
     soup = BeautifulSoup(req.content, "html.parser")
+
     l = soup.find_all("div", attrs={"class": None, "id": None})
+    l = [x.getText() for x in l]
     if not l:
-        sorry = "Sorry, I couldn't find '" + song.strip() + "' by '" + artist.strip() + "'. Maybe try to /searchbylyrics ?"
+        sorry = "Sorry, I couldn't find '" + song.strip() + "' by '" + artist.strip() + "'. Maybe try to 'Search by lyrics' ?"
         return sorry
-    elif l:
-        l = [x.getText() for x in l]
+    else:
         return l
 
 
-def debuging(artist):
-    artist = artist.lower().replace(" ", "")
-    first_char = artist[0]
-    url = base + first_char + "/" + artist + ".html"
+def albums(artist):
+    a = artist.lower().replace(" ", "")
+    a = re.sub(r'[^A-Za-z0-9]', '', a) # [1] substitute everything except numbers and letters
+    first_char = a[0]
+    url = base + first_char + "/" + a + ".html"
     req = requests.get(url, headers=headers)
-
-    artist = {
-        'artist': artist,
-        'albums': {}
-    }
-
     soup = BeautifulSoup(req.content, 'html.parser')
 
-    all_albums = soup.find('div', id='listAlbum')
-    first_album = all_albums.find('div', class_='album')
-    print(first_album)
-
-#debuging(artistName)
+    all_albums = soup.find_all('div', class_='album') # [2] using find_all and get_text to get album names
+    all_albums = [album.getText() for album in all_albums if album.get_text() not in "other songs:"]
+    if not all_albums:
+        sorry = "Sorry, I couldn't find any albums for '" + artist.strip() + "'."
+        return sorry
+    else:
+        return all_albums
 
 # [1] https://stackoverflow.com/a/23142281/2031851
+# [2] https://stackoverflow.com/a/21997788/2031851
