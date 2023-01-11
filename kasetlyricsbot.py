@@ -25,14 +25,14 @@ bot = TelegramClient(session, api_id, api_hash).start(bot_token=bot_token)
 helpText = "This bot is aimed to find lyrics to a song and print it out for you. **Commands are in below:** \n\n" \
             "1. /help - Prints out this help text\n" \
             "2. /start - Starts the bot\n" \
-            "3. /stop - Stops the bot\n" \
+            "3. /stop - Stops the bot\n\n" \
             "4. `Lyrics of a song` - After this command, user must enter both artist and song spelled correctly to get the lyrics of it directly. " \
-            "Name of the artist and song should be separated with an hyphen (-). \n__Example input:__ **Oasis - Don't Look Back in Anger**\n" \
+            "Name of the artist and song should be separated with an hyphen (-). \n__Example input:__ **Oasis - Don't Look Back in Anger**\n\n" \
             "5. `Search by lyrics` - After this command, user must enter the lyrics that he/she remembers partially. " \
             "If only one result with these lyrics found, then it will be printed out. If multiple results are found, first five result will " \
-            "be printed out and user will choose the correct one if it is listed. If it is not listed, user may proceed with the next five results and so on.\n" \
+            "be printed out and user will choose the correct one if it is listed. If it is not listed, user may proceed with the next five results and so on.\n\n" \
             "6. `Songs of artist` - After this command, user must enter the name of the artist to retrieve all songs of belonging to it. " \
-            "Only songs that have lyrics will be shown. User will be able to choose the song with its number. If song list is too long, it will be paginated.\n" \
+            "Only songs that have lyrics will be shown. User will be able to choose the song with its number. If song list is too long, it will be paginated.\n\n" \
             "7. `Albums of artist` - After this command, user must enter the name of the artist to retrieve the album names " \
             "that have songs with lyrics in them."
 

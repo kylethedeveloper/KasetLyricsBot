@@ -5,8 +5,8 @@ import requests
 import json
 import re
 
-agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) \
-        AppleWebKit/537.36 (KHTML, like Gecko) brave/0.7.11'
+agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
+        AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
 headers = {'User-Agent': agent}
 base = "https://www.azlyrics.com/"
 
@@ -74,7 +74,7 @@ def lyrics(artist, song):
     req = requests.get(url, headers=headers)
     soup = BeautifulSoup(req.content, "html.parser")
 
-    l = soup.find_all("div", attrs={"class": None, "id": None})
+    l = soup.find_all("div", attrs={"class": None, "id": None}, limit=1)
     l = [x.getText() for x in l]
     if not l:
         sorry = "Sorry, I couldn't find '" + song.strip() + "' by '" + artist.strip() + "'. Maybe try to 'Search by lyrics' ?"
@@ -92,7 +92,7 @@ def albums(artist):
     soup = BeautifulSoup(req.content, 'html.parser')
 
     all_albums = soup.find_all('div', class_='album') # [2] using find_all and get_text to get album names
-    all_albums = [album.getText() for album in all_albums if album.get_text() not in "other songs:"]
+    all_albums = [album.getText() for album in all_albums if album.getText() not in "other songs:"]
     if not all_albums:
         sorry = "Sorry, I couldn't find any albums for '" + artist.strip() + "'."
         return sorry
