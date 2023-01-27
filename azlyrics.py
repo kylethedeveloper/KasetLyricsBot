@@ -28,41 +28,34 @@ def artists(letter):
 
 
 def songs(artist):
-    artist = artist.lower().replace(" ", "")
-    first_char = artist[0]
-    url = base + first_char + "/" + artist + ".html"
+    sorry = "Sorry, I couldn't find any songs for '" + artist.strip() + "'."
+    a = artist.lower().replace(" ", "")
+    a = re.sub(r'[^A-Za-z0-9]', '', a) # [1] substitute everything except numbers and letters
+    first_char = a[0]
+    url = base + first_char + "/" + a + ".html"
     req = requests.get(url, headers=headers)
-
-    artist = {
-        'artist': artist,
-        'albums': {}
-    }
-
+    if req.status_code != 200:
+        return sorry
     soup = BeautifulSoup(req.content, 'html.parser')
 
+    songs = {}
     all_albums = soup.find('div', id='listAlbum')
     first_album = all_albums.find('div', class_='album')
-    album_name = first_album.b.text
-    s = []
+    album_name = first_album.get_text()
+    songs[album_name] = []
 
-    for tag in first_album.find_next_siblings(['a', 'div']):
-        if tag.name == 'div':
-            artist['albums'][album_name] = s
-            s = []
-            if tag.b is None:
-                pass
-            elif tag.b:
-                album_name = tag.b.text
-
+    for tag in first_album.find_next_siblings('div'):
+        if tag.get('class') is None:
+            pass
+        elif 'album' in tag.get('class'):
+            album_name = tag.get_text()
+            songs[album_name] = []
+        elif 'listalbum-item' in tag.get('class'):
+            songs[album_name].append(tag.text)
         else:
-            if tag.text == "":
-                pass
-            elif tag.text:
-                s.append(tag.text)
+            pass
 
-    artist['albums'][album_name] = s
-
-    return json.dumps(artist)
+    return songs
 
 
 def lyrics(artist, song):
@@ -84,20 +77,20 @@ def lyrics(artist, song):
 
 
 def albums(artist):
+    sorry = "Sorry, I couldn't find any songs for '" + artist.strip() + "'."
     a = artist.lower().replace(" ", "")
     a = re.sub(r'[^A-Za-z0-9]', '', a) # [1] substitute everything except numbers and letters
     first_char = a[0]
     url = base + first_char + "/" + a + ".html"
     req = requests.get(url, headers=headers)
+    if req.status_code != 200:
+        return sorry
     soup = BeautifulSoup(req.content, 'html.parser')
 
     all_albums = soup.find_all('div', class_='album') # [2] using find_all and get_text to get album names
     all_albums = [album.getText() for album in all_albums if album.getText() not in "other songs:"]
-    if not all_albums:
-        sorry = "Sorry, I couldn't find any albums for '" + artist.strip() + "'."
-        return sorry
-    else:
-        return all_albums
+    
+    return sorry if not all_albums else all_albums
 
 # [1] https://stackoverflow.com/a/23142281/2031851
 # [2] https://stackoverflow.com/a/21997788/2031851
