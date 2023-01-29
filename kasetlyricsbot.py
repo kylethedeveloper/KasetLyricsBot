@@ -184,6 +184,45 @@ async def albumsof(event):
                 raise events.StopPropagation
     raise events.StopPropagation
 
+@bot.on(events.NewMessage(pattern='Songs of artist'))
+async def songsof(event):
+    who = event.sender_id
+    logger = logging.getLogger('events.songsofartist') # Set the logger
+    if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT: # Check if state is START_BOT
+        await event.respond("Please type /start or click the button to start using the bot.")
+        raise events.StopPropagation
+    elif conversation_state[who] == State.START_BOT:
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        conversation_state[who] = State.SONGS_OF
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        async with bot.conversation(event.sender_id) as conv:
+            await conv.send_message("Enter the artist name.")
+            try:
+                response = await conv.get_response(timeout=90)
+                songsof = response.text
+                if songsof == "/stop": # Immediately stop the bot when user types the command
+                    raise events.StopPropagation
+                else:
+                    s = azlyrics.songs(songsof)
+                    if "Sorry, I couldn't find any songs for" in s: # Check if response is sorry message
+                        await event.respond(s)
+                    else:
+                        for song in s:
+                            songs = '\n'.join(s[song]) # Concatenate the songs which is a type of list
+                            respond = "**" + song + "**\n" + songs # Final respond to the user with album + songs
+                            await event.respond(respond)
+                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                conversation_state[who] = State.START_BOT
+                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                raise events.StopPropagation
+            except asyncio.TimeoutError: # Catch the timeout
+                await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
+                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                conversation_state[who] = State.START_BOT
+                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                raise events.StopPropagation
+    raise events.StopPropagation
+
 @bot.on(events.NewMessage(incoming=True))
 async def allother(event):
     who = event.sender_id

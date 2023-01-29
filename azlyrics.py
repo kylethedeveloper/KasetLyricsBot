@@ -44,13 +44,13 @@ def songs(artist):
     album_name = first_album.get_text()
     songs[album_name] = []
 
-    for tag in first_album.find_next_siblings('div'):
+    for tag in first_album.find_next_siblings('div'): # Go through all 'div' elements after first album
         if tag.get('class') is None:
             pass
-        elif 'album' in tag.get('class'):
+        elif 'album' in tag.get('class'): # Found album, set the album
             album_name = tag.get_text()
             songs[album_name] = []
-        elif 'listalbum-item' in tag.get('class'):
+        elif 'listalbum-item' in tag.get('class'): # Found song, add it to current album
             songs[album_name].append(tag.text)
         else:
             pass
