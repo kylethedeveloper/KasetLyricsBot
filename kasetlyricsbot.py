@@ -49,6 +49,39 @@ conversation_state = {}
 # [1] Above class and conversation_state must be used because bot.conversation does not work as intended.
 # [1] Refer to: https://stackoverflow.com/a/64213961 and https://stackoverflow.com/a/62246569
 
+buttonOptions = [
+    [
+        Button.inline("Cancel ❌", data='cancel'),
+        Button.inline("Next ➡️", data='next')
+    ],
+    [
+        Button.inline("Show the lyrics! ✅", data='show'),
+    ]
+]
+
+class SearchResultIterator:
+    # An example return is:
+    # ('1', ['Song - Artist', " ... lyrics result ... ", 'https://www.azlyrics.com/lyrics/artist/song.html'])
+    def __init__(self, dictionary):
+        self.dictionary = dictionary
+        self.currentIndex = 0
+        self.keys = list(dictionary.keys())
+    
+    def getNext(self):
+        if self.currentIndex < len(self.keys) - 1:
+            self.currentIndex += 1
+            key = self.keys[self.currentIndex]
+            return key, self.dictionary[key]
+        else:
+            raise StopIteration
+    
+    def getCurrent(self):
+        if self.currentIndex < len(self.keys):
+            key = self.keys[self.currentIndex]
+            return key, self.dictionary[key]
+        else:
+            return None
+
 @bot.on(events.NewMessage(pattern='/help'))
 async def help(event):
     who = event.sender_id
@@ -133,6 +166,7 @@ async def lyricsof(event):
                             if len(lyrics) >= 4096: # Check if total number of chars is greater than 4096
                                 # https://tl.telethon.dev/methods/messages/send_message.html <-->  MessageTooLongError
                                 await event.respond("Lyrics are more than 4096 chars, can not be sent.\nThis issue will be fixed soon.")
+                                logger.warning("4096 characters exception occurred. User could not get the result.")
                             else:
                                 await event.respond("```" + lyrics + "```")
                 logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
@@ -221,6 +255,108 @@ async def songsof(event):
                 conversation_state[who] = State.START_BOT
                 logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
+    raise events.StopPropagation
+
+@bot.on(events.NewMessage(pattern='Search by lyrics'))
+async def searchby(event):
+    who = event.sender_id
+    logger = logging.getLogger('events.searchbylyrics') # Set the logger
+    if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT: # Check if state is START_BOT
+        await event.respond("Please type /start or click the button to start using the bot.")
+        raise events.StopPropagation
+    elif conversation_state[who] == State.START_BOT:
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        conversation_state[who] = State.SEARCH_BY
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        async with bot.conversation(event.sender_id) as conv:
+            await conv.send_message("Enter the lyrics that you know of.")
+            try:
+                response = await conv.get_response(timeout=90)
+                searchby = response.text
+                if searchby == "/stop": # Immediately stop the bot when user types the command
+                    raise events.StopPropagation
+                elif len(searchby) < 6 or len(searchby) > 100:
+                    await event.respond("Length of the lyrics you entered must be more than 6 and less than 100 characters.")
+                    conversation_state[who] = State.START_BOT
+                else:
+                    s = azlyrics.search(searchby)
+                    if "Sorry, I couldn't find any songs for" in s: # Check if response is sorry message
+                        await event.respond(s)
+                        conversation_state[who] = State.START_BOT
+                    elif "Could not get a valid response from server." in s: # Check if server not responding 
+                        await event.respond(s)
+                        conversation_state[who] = State.START_BOT
+                    else:
+                        await searchbyResponse(event, s)
+            except asyncio.TimeoutError: # Catch the timeout
+                await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
+                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                conversation_state[who] = State.START_BOT
+                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                raise events.StopPropagation
+    raise events.StopPropagation
+
+async def searchbyResponse(event, s):
+    who = event.sender_id
+    logger = logging.getLogger('events.searchbyresponse') # Set the logger
+    logger.debug("State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    global ri
+    ri = SearchResultIterator(s) # create an iterator for the search result
+    riRes = ri.getCurrent() # get the first item
+    sTitle = riRes[0] + ") " + riRes[1][0] # first item in iter + second item's (list) first item
+    sLyrics = riRes[1][1]
+    # sLink = riRes[1][2]
+    sRes = "**" + sTitle + "**\n\n" + "```" + sLyrics + "```"
+    await event.respond(sRes, buttons=buttonOptions)
+
+@bot.on(events.CallbackQuery(data='next'))
+async def searchNext(event):
+    who = event.sender_id
+    logger = logging.getLogger('events.searchbylyrics.searchNext') # Set the logger
+    try:
+        riRes = ri.getNext() # get the next item
+    except StopIteration:
+        await event.edit("You have reached the end of the results.")
+        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        conversation_state[who] = State.START_BOT
+        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        raise events.StopPropagation
+    else:
+        sTitle = riRes[0] + ") " + riRes[1][0] # first item in iter + second item's (list) first item
+        sLyrics = riRes[1][1]
+        sRes = "**" + sTitle + "**\n\n" + "```" + sLyrics + "```"
+        await event.edit(sRes, buttons=buttonOptions)
+        raise events.StopPropagation
+
+@bot.on(events.CallbackQuery(data='show'))
+async def searchShow(event):
+    who = event.sender_id
+    logger = logging.getLogger('events.searchbylyrics.searchShow') # Set the logger
+    riRes = ri.getCurrent() # get the result
+    sTitle = "**" + riRes[0] + ") " + riRes[1][0] + "**" # first item in iter + second item's (list) first item
+    sLink = riRes[1][2]
+    l = azlyrics.lyricsFromUrl(sLink)
+    for lyrics in l: # Stringfy the lyrics which is a type of list
+        if len(lyrics) >= 4096: # Check if total number of chars is greater than 4096
+            # https://tl.telethon.dev/methods/messages/send_message.html <-->  MessageTooLongError
+            await event.edit("Lyrics are more than 4096 chars, can not be sent.\nThis issue will be fixed soon.")
+            logger.warning("4096 characters exception occurred. User could not get the result.")
+        else:
+            await event.edit(sTitle + "```" + lyrics + "```")
+    # Move back to START_BOT state
+    logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    conversation_state[who] = State.START_BOT
+    logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    raise events.StopPropagation
+
+@bot.on(events.CallbackQuery(data='cancel'))
+async def searchCancel(event):
+    who = event.sender_id
+    logger = logging.getLogger('events.searchbylyrics.searchCancel') # Set the logger
+    await event.edit("Search is cancelled.\nChoose an option from the menu or type /help")
+    logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    conversation_state[who] = State.START_BOT
+    logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
     raise events.StopPropagation
 
 @bot.on(events.NewMessage(incoming=True))

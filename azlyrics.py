@@ -9,6 +9,7 @@ agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
         AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
 headers = {'User-Agent': agent}
 base = "https://www.azlyrics.com/"
+searchBase = "https://search.azlyrics.com/search.php"
 
 def artists(letter):
     if letter.isalpha() and len(letter) == 1:
@@ -18,13 +19,33 @@ def artists(letter):
         soup = BeautifulSoup(req.content, "html.parser")
         data = []
 
-        for div in soup.find_all("div", {"class": "container main-page"}):
-            links = div.findAll('a')
-            for a in links:
-                data.append(a.text.strip())
-        return json.dumps(data)
+def search(stext):
+    sorry = "Sorry, I couldn't find any songs for the lyrics that you provided."
+    # TODO: if reached 20, make a new request with pageNum++
+    xReq = requests.get(base + 'geo.js', headers=headers) # Get key for search
+    if xReq.status_code != 200:
+        return "Could not get a valid response from server."
+    x = re.search(r"\(\"value\", \"([^']*)\"\);", xReq.text).group(1) # ("value", "x");
+
+    pageNum = 1
+    searchUrl = searchBase + "?q=" + stext + "&w=lyrics&p=" + str(pageNum) + "&x=" + x
+    searchReq = requests.get(searchUrl, headers=headers)
+    soup = BeautifulSoup(searchReq.content, 'html.parser')
+    searchResult = soup.find_all("td", attrs={"class": "visitedlyr", "id": None}) # Get the results
+    if searchReq.status_code != 200:
+        return "Could not get a valid response from server."
+    elif not searchResult:
+        return sorry
     else:
-        raise Exception("Unexpected Input")
+        resultDict = {} # Example: {'1': ['songTitle', 'lyricsResult', 'songLink'], ...}
+        for r in searchResult:
+            a = r.find('a', href=True)
+            songNo = a.contents[0].rstrip('. ') # Get result number
+            songTitle = a.contents[1].text + a.contents[2] + a.contents[3].text
+            lyricsResult = r.a.small.text
+            songLink = a['href']
+            resultDict[songNo] = [songTitle, lyricsResult, songLink] # Add the result to the dict
+        return resultDict
 
 
 def songs(artist):
@@ -77,7 +98,7 @@ def lyrics(artist, song):
 
 
 def albums(artist):
-    sorry = "Sorry, I couldn't find any songs for '" + artist.strip() + "'."
+    sorry = "Sorry, I couldn't find any albums for '" + artist.strip() + "'."
     a = artist.lower().replace(" ", "")
     a = re.sub(r'[^A-Za-z0-9]', '', a) # [1] substitute everything except numbers and letters
     first_char = a[0]
@@ -91,6 +112,19 @@ def albums(artist):
     all_albums = [album.getText() for album in all_albums if album.getText() not in "other songs:"]
     
     return sorry if not all_albums else all_albums
+
+
+def lyricsFromUrl(url):
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.content, "html.parser")
+
+    l = soup.find_all("div", attrs={"class": None, "id": None}, limit=1)
+    l = [x.getText() for x in l]
+    if not l:
+        sorry = "Something went wrong while getting the lyrics."
+        return sorry
+    else:
+        return l
 
 # [1] https://stackoverflow.com/a/23142281/2031851
 # [2] https://stackoverflow.com/a/21997788/2031851

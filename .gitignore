@@ -3,3 +3,5 @@ exportapi.sh
 *.log
 *journal
 __pycache__
+kasetlyricsbot/
+.DS_Store
