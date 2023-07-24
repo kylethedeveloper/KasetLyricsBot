@@ -1,0 +1,19 @@
+version: '3'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "kasetlyricsbot:latest"
+    container_name: "kasetlyricsbot"
+    restart: always
+    volumes:
+      - ./log:/path/to/log/dir
+    environment:
+      - LOG_DIR=/path/to/log/dir
+      - LOG_LEVEL=INFO
+      - TG_SESSION_NAME=nameOfYourSession
+      - TG_API_ID=1234567
+      - TG_API_HASH=yourPers0nalApiHashThatY0uG3tFr0mTelegram
+      - TG_BOT_TOKEN=1234567890:yourB0tTokenThatY0uG3tFr0mBotFather
+      - TZ=Europe/Istanbul

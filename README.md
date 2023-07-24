@@ -63,3 +63,11 @@ stop - Stop the bot
 ```
 python3 kasetlyricsbot.py
 ```
+
+## Docker Deployment
+
+There are `Dockerfile` and `docker-compose-example.yml` files for easy deployment. Change the environment variables inside example compose file and rename it as `docker-compose.yml`. You can use the following command to build and run the bot.
+
+```
+docker compose up -d --build
+```

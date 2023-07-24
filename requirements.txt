@@ -3,7 +3,7 @@ rsa
 pysocks
 python-socks[asyncio]
 hachoir
-cryptg
+#cryptg
 Pillow
 Telethon
 beautifulsoup4

@@ -5,3 +5,5 @@ exportapi.sh
 __pycache__
 kasetlyricsbot/
 .DS_Store
+docker-compose.yml
+deploy.sh
