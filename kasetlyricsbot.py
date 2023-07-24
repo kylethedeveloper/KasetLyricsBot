@@ -4,10 +4,12 @@ import os, sys, azlyrics, logging, time, asyncio
 from telethon import TelegramClient, events, utils, Button
 from enum import Enum, auto
 
-def get_env(name, message, cast=str):
+def get_env(name, message, cast=str, default=None):
     logger = logging.getLogger('system.getenv')
     if name in os.environ:
         return os.environ[name]
+    elif default is not None:
+        return default
     while True:
         value = input(message)
         try:
@@ -21,6 +23,8 @@ api_id = get_env('TG_API_ID', 'Enter your API ID: ')
 api_hash = get_env('TG_API_HASH', 'Enter your API hash: ')
 bot_token = get_env('TG_BOT_TOKEN', 'Enter your Bot Token if using bot: ')
 bot = TelegramClient(session, api_id, api_hash).start(bot_token=bot_token)
+log_dir = get_env('LOG_DIR', 'Enter log directory: ', default='.')
+log_level = get_env('LOG_LEVEL', 'Enter log level: ', default='DEBUG')
 
 helpText = "This bot is aimed to find lyrics to a song and print it out for you. **Commands are in below:** \n\n" \
             "1. /help - Prints out this help text\n" \
@@ -86,7 +90,7 @@ class SearchResultIterator:
 async def help(event):
     who = event.sender_id
     logger = logging.getLogger('events.help')
-    logger.debug(str(who) + " asked for help, state is " + str(conversation_state.get(who)))
+    logger.info(str(who) + " asked for help, state is " + str(conversation_state.get(who)))
     if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
         await bot.send_message(event.chat_id, 'Please type /start or click the button to start using the bot.', buttons=Button.text("Start", resize=True, single_use=True))
         raise events.StopPropagation
@@ -100,9 +104,9 @@ async def start(event):
     who = event.sender_id
     logger = logging.getLogger('events.start')
     if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.START_BOT
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         menu = [
             [
                 Button.text("Lyrics of a song", resize=True),
@@ -122,9 +126,9 @@ async def stop(event):
     who = event.sender_id
     logger = logging.getLogger('events.stop')
     if conversation_state.get(who) != State.STOP_BOT:
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.STOP_BOT
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         await bot.send_message(event.chat_id, '🛑 Bot Stopped 🛑', buttons=Button.text("Start", resize=True, single_use=True))
         raise events.StopPropagation
     raise events.StopPropagation
@@ -137,9 +141,9 @@ async def lyricsof(event):
         await event.respond("Please type /start or click the button to start using the bot.")
         raise events.StopPropagation
     elif conversation_state[who] == State.START_BOT:
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.LYRICS_OF
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         async with bot.conversation(event.sender_id) as conv:
             await conv.send_message("Enter both artist and song name spelled correctly. \nThey should be separated with an hyphen (-)")
             try:
@@ -154,9 +158,9 @@ async def lyricsof(event):
                         artistName, songName = lyricsof.split("-")
                     except ValueError: # Check if more than one hyphen (-) is entered
                         await conv.send_message('You did not sent a valid message.\nPlease split the artist name and song name with only one hyphen.\nExample: **Elton John - Please**')
-                        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                         conversation_state[who] = State.START_BOT
-                        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                         raise events.StopPropagation
                     l = azlyrics.lyrics(artistName, songName) # Get the lyrics OR sorry message
                     if "Search by lyrics" in l: # Check if response is sorry message
@@ -169,15 +173,15 @@ async def lyricsof(event):
                                 logger.warning("4096 characters exception occurred. User could not get the result.")
                             else:
                                 await event.respond("```" + lyrics + "```")
-                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
             except asyncio.TimeoutError: # Catch the timeout
                 await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
-                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
     raise events.StopPropagation
 
@@ -189,9 +193,9 @@ async def albumsof(event):
         await event.respond("Please type /start or click the button to start using the bot.")
         raise events.StopPropagation
     elif conversation_state[who] == State.START_BOT:
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.ALBUMS_OF
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         async with bot.conversation(event.sender_id) as conv:
             await conv.send_message("Enter the artist name.")
             try:
@@ -206,15 +210,15 @@ async def albumsof(event):
                     else:
                         albums = '\n'.join(a) # Concatenate the albums which is a type of list
                         await event.respond(albums)
-                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
             except asyncio.TimeoutError: # Catch the timeout
                 await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
-                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
     raise events.StopPropagation
 
@@ -226,9 +230,9 @@ async def songsof(event):
         await event.respond("Please type /start or click the button to start using the bot.")
         raise events.StopPropagation
     elif conversation_state[who] == State.START_BOT:
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.SONGS_OF
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         async with bot.conversation(event.sender_id) as conv:
             await conv.send_message("Enter the artist name.")
             try:
@@ -245,15 +249,15 @@ async def songsof(event):
                             songs = '\n'.join(s[song]) # Concatenate the songs which is a type of list
                             respond = "**" + song + "**\n" + songs # Final respond to the user with album + songs
                             await event.respond(respond)
-                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
             except asyncio.TimeoutError: # Catch the timeout
                 await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
-                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
     raise events.StopPropagation
 
@@ -265,9 +269,9 @@ async def searchby(event):
         await event.respond("Please type /start or click the button to start using the bot.")
         raise events.StopPropagation
     elif conversation_state[who] == State.START_BOT:
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.SEARCH_BY
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         async with bot.conversation(event.sender_id) as conv:
             await conv.send_message("Enter the lyrics that you know of.")
             try:
@@ -290,16 +294,16 @@ async def searchby(event):
                         await searchbyResponse(event, s)
             except asyncio.TimeoutError: # Catch the timeout
                 await conv.send_message("⌛ You are late to respond. Please send your message in ~90 seconds.")
-                logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 conversation_state[who] = State.START_BOT
-                logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+                logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
                 raise events.StopPropagation
     raise events.StopPropagation
 
 async def searchbyResponse(event, s):
     who = event.sender_id
     logger = logging.getLogger('events.searchbyresponse') # Set the logger
-    logger.debug("State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger.info("State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
     global ri
     ri = SearchResultIterator(s) # create an iterator for the search result
     riRes = ri.getCurrent() # get the first item
@@ -317,9 +321,9 @@ async def searchNext(event):
         riRes = ri.getNext() # get the next item
     except StopIteration:
         await event.edit("You have reached the end of the results.")
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.START_BOT
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         raise events.StopPropagation
     else:
         sTitle = riRes[0] + ") " + riRes[1][0] # first item in iter + second item's (list) first item
@@ -333,7 +337,7 @@ async def searchShow(event):
     who = event.sender_id
     logger = logging.getLogger('events.searchbylyrics.searchShow') # Set the logger
     riRes = ri.getCurrent() # get the result
-    sTitle = "**" + riRes[0] + ") " + riRes[1][0] + "**" # first item in iter + second item's (list) first item
+    sTitle = "**" + riRes[1][0] + "**" # first item in iter + second item's (list) first item
     sLink = riRes[1][2]
     l = azlyrics.lyricsFromUrl(sLink)
     for lyrics in l: # Stringfy the lyrics which is a type of list
@@ -344,9 +348,9 @@ async def searchShow(event):
         else:
             await event.edit(sTitle + "```" + lyrics + "```")
     # Move back to START_BOT state
-    logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
     conversation_state[who] = State.START_BOT
-    logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
     raise events.StopPropagation
 
 @bot.on(events.CallbackQuery(data='cancel'))
@@ -354,9 +358,9 @@ async def searchCancel(event):
     who = event.sender_id
     logger = logging.getLogger('events.searchbylyrics.searchCancel') # Set the logger
     await event.edit("Search is cancelled.\nChoose an option from the menu or type /help")
-    logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
     conversation_state[who] = State.START_BOT
-    logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
     raise events.StopPropagation
 
 @bot.on(events.NewMessage(incoming=True))
@@ -364,19 +368,19 @@ async def allother(event):
     who = event.sender_id
     logger = logging.getLogger('events.allother')
     if conversation_state.get(who) is None or conversation_state[who] == State.STOP_BOT:
-        logger.debug("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("State was " + str(conversation_state.get(who)) + " and sender is " + str(who))
         conversation_state[who] = State.STOP_BOT
-        logger.debug("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
+        logger.info("Setting state to " + str(conversation_state.get(who)) + " and sender is " + str(who))
         await bot.send_message(event.chat_id, 'Please type /start or click the button to start using the bot.', buttons=Button.text("Start", resize=True, single_use=True))
         raise events.StopPropagation
-    logger.debug("I am at the very beginning. State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
+    logger.info("I am at the very beginning. State is " + str(conversation_state.get(who)) + " and sender is " + str(who))
     if conversation_state[who] == State.START_BOT:
         await event.respond("Type /help to get help.")
         raise events.StopPropagation
 
 def main():
     logging.basicConfig(format='[%(asctime)s](%(levelname)s) %(name)s: %(message)s',
-                        filename='kasetlyrics.log', level=logging.DEBUG)
+                        filename=f'{log_dir}/{session}.log', level=log_level)
     bot.run_until_disconnected()
 
 if __name__ == '__main__':
