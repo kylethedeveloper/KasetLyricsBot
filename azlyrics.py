@@ -11,13 +11,12 @@ headers = {'User-Agent': agent}
 base = "https://www.azlyrics.com/"
 searchBase = "https://search.azlyrics.com/search.php"
 
-def artists(letter):
-    if letter.isalpha() and len(letter) == 1:
-        letter = letter.lower()
-        url = base + letter + ".html"
-        req = requests.get(url, headers=headers)
-        soup = BeautifulSoup(req.content, "html.parser")
-        data = []
+# def getRequest(url, headers):
+#     try:
+#         req = requests.get(url, headers=headers)
+#         return req if req.status_code == 200 else 1
+#     except:
+#         return 2
 
 def search(stext):
     sorry = "Sorry, I couldn't find any songs for the lyrics that you provided."
